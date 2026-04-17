@@ -314,6 +314,16 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     authToken = data.token;
     localStorage.setItem('auth_token', authToken);
     currentUser = data.user;
+
+    // If redirected from another app, go back with token
+    const redirectUrl = new URLSearchParams(window.location.search).get('redirect');
+    if (redirectUrl) {
+      const url = new URL(redirectUrl);
+      url.searchParams.set('token', authToken);
+      window.location.href = url.toString();
+      return;
+    }
+
     showDashboard();
   } catch (err) {
     errorEl.textContent = err.message;
