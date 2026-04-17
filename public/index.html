@@ -219,7 +219,7 @@ const APP_CONFIGS = [
     icon: '🍎',
     url: '',
     urlKey: 'APPLE_ADS_URL',
-    defaultUrl: '',
+    defaultUrl: 'https://apple-ads-manager-production.up.railway.app',
   },
 ];
 
@@ -284,7 +284,7 @@ function renderApps() {
         <p style="color:#f59e0b; margin-top:8px; font-size:0.8rem">尚未設定連結</p>
       </div>`;
     // Pass token via URL parameter for cross-origin apps
-    const appUrl = `${url}?auth_token=${encodeURIComponent(authToken)}`;
+    const appUrl = `${url}?token=${encodeURIComponent(authToken)}`;
     return `
       <a href="${appUrl}" target="_blank" class="app-card">
         <div class="app-icon">${app.icon}</div>
