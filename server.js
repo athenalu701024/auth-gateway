@@ -81,6 +81,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'https://apple-ads-manager-production.up.railway.app',
   'https://google-ads-manager-production.up.railway.app',
   'https://applovin-ads-manager-production.up.railway.app',
+  'https://web-production-dd3e5.up.railway.app',
 ];
 // Extra origins from env are merged in (comma-separated), not replaced.
 const envOrigins = (process.env.ALLOWED_ORIGINS || '')
