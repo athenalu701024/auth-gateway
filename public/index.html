@@ -196,9 +196,10 @@
       <div class="form-group">
         <label style="display:flex; justify-content:space-between; align-items:center;">
           <span>可使用的工具</span>
-          <label style="font-weight:400; font-size:0.8rem; color:#94a3b8; cursor:pointer;">
-            <input type="checkbox" id="appCheckAll" onchange="toggleAllApps(this.checked)"> 全選
-          </label>
+          <span style="font-weight:400; display:flex; gap:6px;">
+            <button type="button" class="btn-sm btn-outline" onclick="toggleAllApps(true)">全選</button>
+            <button type="button" class="btn-sm btn-outline" onclick="toggleAllApps(false)">全不選</button>
+          </span>
         </label>
         <div id="appCheckboxes" style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding:4px 0;"></div>
       </div>
@@ -435,20 +436,14 @@ function renderAppCheckboxes(allowed) {
   container.innerHTML = APP_CONFIGS.map(app => {
     const checked = (!allowed || allowed.includes(app.urlKey)) ? 'checked' : '';
     return `<label style="display:flex; align-items:center; gap:8px; font-weight:400; cursor:pointer;">
-      <input type="checkbox" value="${app.urlKey}" ${checked} onchange="syncAppCheckAll()">
+      <input type="checkbox" value="${app.urlKey}" ${checked}>
       <span>${app.icon} ${app.name}</span>
     </label>`;
   }).join('');
-  syncAppCheckAll();
 }
 
 function toggleAllApps(checked) {
   document.querySelectorAll('#appCheckboxes input[type=checkbox]').forEach(cb => { cb.checked = checked; });
-}
-
-function syncAppCheckAll() {
-  const boxes = Array.from(document.querySelectorAll('#appCheckboxes input[type=checkbox]'));
-  document.getElementById('appCheckAll').checked = boxes.length > 0 && boxes.every(cb => cb.checked);
 }
 
 function getCheckedApps() {
