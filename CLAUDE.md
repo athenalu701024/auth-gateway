@@ -55,6 +55,14 @@ npm run dev                # 預設 PORT=4000；`node --watch` 自動重啟
 - 平台已知 origin（auth-gateway 本身 + meta/apple/google/applovin 四個 production URL）已**內建**在 server.js 的 `DEFAULT_ALLOWED_ORIGINS`，即使沒設 env 也不會被擋。
 - `ALLOWED_ORIGINS`（逗號分隔）的值會與內建清單**合併**（非取代）。新增其他下游服務時，把它的 URL 加進這個 env 或 `DEFAULT_ALLOWED_ORIGINS` 即可。
 
+### 工具可見性（per-user，僅隱藏磚塊）
+`users.allowed_apps`（`TEXT[]`）控制每個帳號在入口看得到哪些工具：
+- `NULL` = 看得到全部（現有帳號預設，向後相容）
+- 陣列（存 `APP_CONFIGS` 的 `urlKey`）= 只看清單內；空陣列 = 都看不到
+- admin 在「使用者管理」的新增/編輯 modal 用 checkbox 勾選；前端 `renderApps()` 依此過濾。
+- 入口載入時打 `/api/auth/me`（查 DB）拿最新 `allowed_apps`，所以改完使用者**下次刷新即生效、不必重新登入**。
+- ⚠️ **這只隱藏入口磚塊，不是真正的存取控制**。知道下游網址且 token 有效的人仍可直接進入（gateway `/api/auth/verify` 只驗登入、不驗工具權限）。要真正擋下需讓下游服務檢查 per-app 權限。
+
 ## Security-sensitive 改動必知
 
 - 🔴 **`JWT_SECRET` 必須是強隨機值**。程式 fallback 的 `'dev-secret-change-in-production'` 只給 dev 用；production 必須覆寫且 ≥ 256 bits entropy。

@@ -53,6 +53,10 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     `);
 
+    // Per-user app visibility. NULL = see all apps (backward-compatible for existing users);
+    // an array of app keys (urlKey) = see only those; empty array = see none.
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_apps TEXT[];`);
+
     // Create initial admin if not exists
     const adminEmail = process.env.ADMIN_EMAIL || `admin@${ALLOWED_DOMAIN}`;
     const adminPassword = process.env.ADMIN_PASSWORD || 'changeme123';
@@ -181,7 +185,7 @@ app.post('/api/auth/login', async (req, res) => {
     setTokenCookie(res, token);
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, allowed_apps: user.allowed_apps },
       token, // Also return token for apps that use Authorization header
     });
   } catch (err) {
@@ -205,7 +209,7 @@ app.get('/api/auth/verify', requireAuth, (req, res) => {
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, name, role, is_active, created_at, last_login FROM users WHERE id = $1',
+      'SELECT id, email, name, role, is_active, allowed_apps, created_at, last_login FROM users WHERE id = $1',
       [req.user.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: '使用者不存在' });
@@ -244,7 +248,7 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
 app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, name, role, is_active, created_at, last_login FROM users ORDER BY created_at DESC'
+      'SELECT id, email, name, role, is_active, allowed_apps, created_at, last_login FROM users ORDER BY created_at DESC'
     );
     res.json({ users: result.rows });
   } catch {
@@ -254,7 +258,7 @@ app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 
 // Create user
 app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
-  const { email, name, password, role } = req.body;
+  const { email, name, password, role, allowed_apps } = req.body;
   if (!email || !name || !password) {
     return res.status(400).json({ error: '請填寫所有欄位' });
   }
@@ -275,9 +279,10 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 
   try {
     const hash = await bcrypt.hash(password, 12);
+    const apps = Array.isArray(allowed_apps) ? allowed_apps : null; // null = see all apps
     const result = await pool.query(
-      'INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, is_active, created_at',
-      [email.toLowerCase(), hash, name, role || 'viewer']
+      'INSERT INTO users (email, password_hash, name, role, allowed_apps) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, is_active, allowed_apps, created_at',
+      [email.toLowerCase(), hash, name, role || 'viewer', apps]
     );
     res.json({ user: result.rows[0], message: '使用者已建立' });
   } catch (err) {
@@ -292,7 +297,7 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 // Update user
 app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, role, is_active, password } = req.body;
+  const { name, role, is_active, password, allowed_apps } = req.body;
 
   // Prevent admin from deactivating themselves
   if (parseInt(id) === req.user.id && is_active === false) {
@@ -307,6 +312,10 @@ app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
     if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name); }
     if (role !== undefined) { updates.push(`role = $${idx++}`); values.push(role); }
     if (is_active !== undefined) { updates.push(`is_active = $${idx++}`); values.push(is_active); }
+    if (allowed_apps !== undefined) {
+      updates.push(`allowed_apps = $${idx++}`);
+      values.push(Array.isArray(allowed_apps) ? allowed_apps : null); // null = see all apps
+    }
     if (password) {
       const hash = await bcrypt.hash(password, 12);
       updates.push(`password_hash = $${idx++}`);
@@ -319,7 +328,7 @@ app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
     values.push(id);
 
     const result = await pool.query(
-      `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx} RETURNING id, email, name, role, is_active`,
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx} RETURNING id, email, name, role, is_active, allowed_apps`,
       values
     );
 
