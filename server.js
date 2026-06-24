@@ -72,16 +72,28 @@ async function initDB() {
 }
 
 // ─── Middleware ───
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001')
-  .split(',').map(s => s.trim());
+// Known platform origins — always allowed even if ALLOWED_ORIGINS env is unset/partial.
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://auth-gateway-production-c321.up.railway.app',
+  'https://meta-ads-reviewer-production-0cd5.up.railway.app',
+  'https://apple-ads-manager-production.up.railway.app',
+  'https://google-ads-manager-production.up.railway.app',
+  'https://applovin-ads-manager-production.up.railway.app',
+];
+// Extra origins from env are merged in (comma-separated), not replaced.
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const allowedOrigins = [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...envOrigins])];
 
 app.use(cors({
   origin: (origin, callback) => {
+    // No Origin header → non-browser/same-origin request (curl, server-to-server). Allow.
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all in production for now — apps validate JWT
+      return callback(null, true);
     }
+    return callback(new Error(`CORS blocked: origin not allowed (${origin})`));
   },
   credentials: true,
 }));
